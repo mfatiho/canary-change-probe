@@ -1,0 +1,87 @@
+# Edit external paths before a real model run. The repository never bundles data,
+# checkpoints, or third-party model implementations.
+seed: 42
+device: auto
+threshold: 0.5
+inference_batch_size: 8
+
+canary:
+  bank_path: results/silent_failure/canary_bank/levir-256_train.npz
+  enabled_types:
+    - building_crop_add
+    - building_remove_fill
+    - linear_road_add
+    - texture_replace
+  canaries_per_pair: 1
+  generators:
+    building_crop_add: {}
+    building_remove_fill:
+      size: 16
+      ring_width: 6
+    linear_road_add:
+      width: 6
+    texture_replace:
+      size: 24
+
+paths:
+  bit_repo: external/BIT_CD
+  cdmamba_repo: external/CDMamba
+  changeformer_repo: external/ChangeFormer
+  changemamba_repo: external/ChangeMamba
+  tinycd_repo: external/Tiny_model_4_CD
+  data_root: data
+  results_root: results
+
+datasets:
+  levir-256:
+    path: /path/to/LEVIR-CD
+    preprocessing:
+      patching:
+        enabled: true
+        patch_size: 256
+        stride: 256
+  whu-256:
+    path: /path/to/WHU-CD
+    preprocessing:
+      patching:
+        enabled: true
+        patch_size: 256
+  dsifn-256:
+    path: /path/to/DSIFN-CD
+    preprocessing:
+      patching:
+        enabled: true
+        patch_size: 256
+        stride: 256
+  clcd-256:
+    path: /path/to/CLCD
+    preprocessing:
+      patching:
+        enabled: true
+        patch_size: 256
+        stride: 256
+
+models:
+  bit:
+    checkpoint: /path/to/checkpoints/bit_levir.pt
+    net_g: base_transformer_pos_s4_dd8_dedim8
+    image_size: 256
+  changeformer:
+    checkpoint: /path/to/checkpoints/changeformer_levir.pt
+    net_g: ChangeFormerV6
+    embed_dim: 256
+    image_size: 256
+  cdmamba:
+    checkpoint: /path/to/checkpoints/cdmamba_levir.pth
+    config_path: external/CDMamba/config/mamba/levir_test_cdmamba.json
+    trained_dataset: levir-256
+  tinycd:
+    checkpoint: /path/to/checkpoints/tinycd_levir.pth
+    backbone: efficientnet_b4
+    output_layer_backbone: "3"
+    pretrained_backbone: false
+    freeze_backbone: false
+  changemamba:
+    checkpoint: /path/to/checkpoints/changemamba_whu.pth
+    cfg_path: external/ChangeMamba/changedetection/configs/vssm1/vssm_tiny_224_0229flex.yaml
+    trained_dataset: whu-256

@@ -1,0 +1,24 @@
+[project]
+name = "canary-change-probe"
+version = "0.1.0"
+description = "Reproducible canary-based silent-failure audit for remote-sensing change detection."
+requires-python = ">=3.10"
+dependencies = [
+    "numpy>=1.24",
+    "Pillow>=9.0",
+    "PyYAML>=6.0",
+    "scikit-learn>=1.2",
+    "scipy>=1.10",
+]
+
+[project.optional-dependencies]
+test = ["pytest>=7.0"]
+model = ["torch>=2.0", "torchvision>=0.15"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
