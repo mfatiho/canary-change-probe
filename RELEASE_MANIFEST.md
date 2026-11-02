@@ -4,7 +4,7 @@ This manifest records the scope of the article code release.
 
 ## Included
 
-- `src/scp/canary`: deterministic canary generation and source canary-bank handling.
+- `src/scp/canary`: deterministic canary generation, source canary-bank handling, and opt-in road/texture harmonization (edge feathering, scene radiometry).
 - `src/scp/data`: image-pair and folder-layout data interfaces, including controlled shifts.
 - `src/scp/eval`: counterfactual canary and offline evaluation metrics.
 - `src/scp/models`: lazy adapters for the model implementations named in the article.

@@ -11,6 +11,13 @@ from numpy.typing import NDArray
 
 from scp.canary.base import CanaryGenerator
 from scp.canary.bank import CanaryBank, load_canary_bank
+from scp.canary.harmonization import (
+    composite,
+    is_harmonized,
+    match_to_scene,
+    scene_quantile,
+    validate_harmonization,
+)
 from scp.data import ImagePair
 from scp.utils import ConfigError
 
@@ -149,6 +156,14 @@ class LinearRoadAdd(CanaryGenerator):
 
     width: int = ROAD_WIDTH
     intensity: float = 0.8
+    edge_feather_px: int = 0
+    scene_radiometry_blend: float = 0.0
+
+    def __post_init__(self) -> None:
+        """Validate the opt-in harmonization settings."""
+        validate_harmonization(
+            "linear_road_add", self.edge_feather_px, self.scene_radiometry_blend
+        )
 
     @property
     def name(self) -> str:
@@ -167,9 +182,24 @@ class LinearRoadAdd(CanaryGenerator):
         else:
             start = int(rng.integers(0, max(1, width - self.width + 1)))
             mask[:, start : start + self.width] = True
+        if is_harmonized(self.edge_feather_px, self.scene_radiometry_blend):
+            return pair.copy_with(after=self._harmonized_after(pair.after, mask)), mask
         after = pair.after.copy()
         _assign_masked_pixels(after, mask, self.intensity)
         return pair.copy_with(after=after), mask
+
+    def _harmonized_after(
+        self, after: NDArray[np.floating] | NDArray[np.integer], mask: NDArray[np.bool_]
+    ) -> NDArray[np.floating] | NDArray[np.integer]:
+        """Blend a scene-matched road value into the image with a feathered edge."""
+        fixed_value = self.intensity * _intensity_scale(after)
+        scene_value = scene_quantile(after, self.intensity)
+        road_value = (
+            1.0 - self.scene_radiometry_blend
+        ) * fixed_value + self.scene_radiometry_blend * scene_value
+        layer = np.broadcast_to(road_value, after.shape).astype(np.float64)
+        blended = composite(after, layer, mask, self.edge_feather_px)
+        return _cast_to_dtype(blended, after.dtype)
 
 
 @dataclass(frozen=True)
@@ -177,6 +207,14 @@ class TextureReplace(CanaryGenerator):
     """Replace a square region with seeded random texture in the after image."""
 
     size: int = DEFAULT_CANARY_SIZE
+    edge_feather_px: int = 0
+    scene_radiometry_blend: float = 0.0
+
+    def __post_init__(self) -> None:
+        """Validate the opt-in harmonization settings."""
+        validate_harmonization(
+            "texture_replace", self.edge_feather_px, self.scene_radiometry_blend
+        )
 
     @property
     def name(self) -> str:
@@ -189,11 +227,38 @@ class TextureReplace(CanaryGenerator):
         """Insert a random texture patch into the after image."""
         row, col = _random_top_left(pair.spatial_shape, self.size, rng)
         mask = _square_mask(pair.spatial_shape, row, col, self.size)
+        if is_harmonized(self.edge_feather_px, self.scene_radiometry_blend):
+            after = self._harmonized_after(pair.after, mask, (row, col), rng)
+            return pair.copy_with(after=after), mask
         after = pair.after.copy()
         texture_shape = (self.size, self.size, *after.shape[2:])
         texture = rng.random(texture_shape) * _intensity_scale(after)
         after[row : row + self.size, col : col + self.size] = texture.astype(after.dtype)
         return pair.copy_with(after=after), mask
+
+    def _harmonized_after(
+        self,
+        after: NDArray[np.floating] | NDArray[np.integer],
+        mask: NDArray[np.bool_],
+        top_left: tuple[int, int],
+        rng: np.random.Generator,
+    ) -> NDArray[np.floating] | NDArray[np.integer]:
+        """Composite scene-matched noise over the mask plus its feather band."""
+        height, width = after.shape[:2]
+        margin = self.edge_feather_px
+        top, left = max(0, top_left[0] - margin), max(0, top_left[1] - margin)
+        bottom = min(height, top_left[0] + self.size + margin)
+        right = min(width, top_left[1] + self.size + margin)
+        texture = rng.random((bottom - top, right - left, *after.shape[2:]))
+        texture = texture * _intensity_scale(after)
+        if self.scene_radiometry_blend > 0.0:
+            texture = (1.0 - self.scene_radiometry_blend) * texture + (
+                self.scene_radiometry_blend * match_to_scene(texture, after)
+            )
+        layer = np.asarray(after, dtype=np.float64).copy()
+        layer[top:bottom, left:right] = texture
+        blended = composite(after, layer, mask, margin)
+        return _cast_to_dtype(blended, after.dtype)
 
 
 @lru_cache(maxsize=8)

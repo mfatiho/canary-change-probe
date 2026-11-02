@@ -38,6 +38,18 @@ Copy `configs/article.yaml` to a local file and replace the placeholder paths fo
 
 Do not commit local data, checkpoints, or generated results. The configuration keeps the source-calibration and target runs explicit, and the pipeline writes results below `paths.results_root`.
 
+The road and texture canaries accept two optional parameters for the article's canary-harmonization sensitivity check. Both default to the primary probes and leave them unchanged:
+
+- `edge_feather_px` (default `0`): blends the canary into a band of this width outside the scored mask. The scored mask is not changed.
+- `scene_radiometry_blend` (default `0.0`): moves the canary radiometry toward the target after-image. A value of `1.0` sets the road value of each band to the corresponding quantile of the after-image and maps the texture values to the after-image band histograms.
+
+```yaml
+canary:
+  generators:
+    linear_road_add: {width: 6, edge_feather_px: 4, scene_radiometry_blend: 1.0}
+    texture_replace: {size: 24, edge_feather_px: 4, scene_radiometry_blend: 1.0}
+```
+
 ## Run the checks
 
 The validation command parses the article configuration without loading a model:
