@@ -207,10 +207,10 @@ tempCodeRunnerFile.py
 .ruff_cache/
 
 # Article inputs and generated outputs
-data/
-results/
-checkpoints/
-external/
+/data/
+/results/
+/checkpoints/
+/external/
 
 # PyPI configuration file
 .pypirc
