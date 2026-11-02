@@ -221,15 +221,19 @@ class EvidenceCoverage(PassiveSignal):
     ) -> float:
         """Compute response coverage over the pair's top-evidence pixels."""
         _validate_prediction(pair, prediction)
+        evidence_mask = self.evidence_mask(pair)
+        if not bool(evidence_mask.any()):
+            return 0.0
+        return float(np.mean(prediction[evidence_mask] >= self.response_threshold))
+
+    def evidence_mask(self, pair: ImagePair) -> NDArray[np.bool_]:
+        """Return the pair's top-percentile temporal-difference evidence pixels."""
         evidence = cva_evidence_map(pair)
         threshold = max(
             float(np.percentile(evidence, self.evidence_percentile)),
             self.evidence_floor,
         )
-        evidence_mask = evidence >= threshold
-        if not bool(evidence_mask.any()):
-            return 0.0
-        return float(np.mean(prediction[evidence_mask] >= self.response_threshold))
+        return evidence >= threshold
 
 
 def cva_evidence_map(pair: ImagePair) -> NDArray[np.float32]:

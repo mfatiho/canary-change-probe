@@ -263,7 +263,7 @@ def compute_canary_scores(
     )
     active_dataset = dataset or _build_dataset(config, dataset_name)
     active_adapter = adapter or build_model_adapter(config, model_name)
-    canary_generators = _canary_generators(config)
+    canary_generators = build_canary_generators(config)
     rows = _canary_score_rows(
         dataset=active_dataset,
         adapter=active_adapter,
@@ -505,7 +505,8 @@ def _eval_label_rows(
     return rows
 
 
-def _canary_generators(config: AppConfig) -> tuple[CanaryGenerator, ...]:
+def build_canary_generators(config: AppConfig) -> tuple[CanaryGenerator, ...]:
+    """Instantiate the enabled canary generators with their configured parameters."""
     generators: list[CanaryGenerator] = []
     for canary_type in config.canary.enabled_types:
         params: dict[str, Any] = dict(config.canary.generator_params.get(canary_type, {}))
@@ -533,7 +534,7 @@ def _canary_score_rows(
             pair_id = _required_pair_id(pair)
             for canary_generator in canary_generators:
                 for canary_index in range(canaries_per_pair):
-                    rng = _canary_rng(seed, pair_id, canary_generator.name, canary_index)
+                    rng = canary_rng(seed, pair_id, canary_generator.name, canary_index)
                     canary_pair, canary_mask = canary_generator.generate(pair, rng)
                     canary_items.append(
                         (
@@ -574,12 +575,13 @@ def _canary_score_rows(
     return rows
 
 
-def _canary_rng(
+def canary_rng(
     seed: int,
     pair_id: str,
     canary_type: str,
     canary_index: int,
 ) -> np.random.Generator:
+    """Return the stable per-canary generator derived from (seed, pair, type, index)."""
     seed_material = f"{seed}\0{pair_id}\0{canary_type}\0{canary_index}".encode("utf-8")
     stable_seed = int.from_bytes(hashlib.sha256(seed_material).digest()[:8], "big")
     return np.random.default_rng(stable_seed)
